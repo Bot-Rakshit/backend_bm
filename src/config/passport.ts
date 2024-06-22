@@ -1,141 +1,101 @@
-import passport from "passport";
-import passportLocal from "passport-local";
-import passportFacebook from "passport-facebook";
-import { find } from "lodash";
+import { createOrUpdateChessInfo } from '../services/chessInfoService';
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import { PrismaClient } from '@prisma/client';
+import { User } from '../models/User';
+import { Strategy as JwtStrategy, ExtractJwt, StrategyOptionsWithRequest, VerifiedCallback } from 'passport-jwt';
+import { google } from 'googleapis';
 
-// import { User, UserType } from '../models/User';
-import { User, UserDocument } from "../models/User";
-import { Request, Response, NextFunction } from "express";
-import { NativeError } from "mongoose";
-
-const LocalStrategy = passportLocal.Strategy;
-const FacebookStrategy = passportFacebook.Strategy;
-
-passport.serializeUser<any, any>((req, user, done) => {
-    done(undefined, user);
-});
-
-passport.deserializeUser((id, done) => {
-    User.findById(id, (err: NativeError, user: UserDocument) => done(err, user));
-});
+const prisma = new PrismaClient();
 
 
-/**
- * Sign in using Email and Password.
- */
-passport.use(new LocalStrategy({ usernameField: "email" }, (email, password, done) => {
-    User.findOne({ email: email.toLowerCase() }, (err: NativeError, user: UserDocument) => {
-        if (err) { return done(err); }
-        if (!user) {
-            return done(undefined, false, { message: `Email ${email} not found.` });
+interface ProfileJson {
+  youtubeChannelId?: string;
+  
+}
+
+
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      callbackURL: '/api/auth/google/callback',
+    },
+    async (accessToken, refreshToken, profile: any, done) => {
+      const profileJson: ProfileJson = profile._json;
+      try {
+        const oauth2Client = new google.auth.OAuth2();
+        oauth2Client.setCredentials({ access_token: accessToken });
+        const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+        
+        const response = await youtube.channels.list({
+          part: ['id'],
+          mine: true,
+        });
+
+        const youtubeChannelId = response.data.items?.[0]?.id;
+
+        const existingUser = await prisma.user.findUnique({
+          where: { googleId: profile.id },
+        });
+
+        if (existingUser) {
+          return done(null, existingUser);
         }
-        user.comparePassword(password, (err: Error, isMatch: boolean) => {
-            if (err) { return done(err); }
-            if (isMatch) {
-                return done(undefined, user);
-            }
-            return done(undefined, false, { message: "Invalid email or password." });
+
+        const newUser = await prisma.user.create({
+          data: {
+            googleId: profile.id,
+            email: profile.emails?.[0].value,
+            name: profile.displayName,
+            youtubeChannelId: youtubeChannelId,
+          },
         });
-    });
-}));
 
+        if (newUser.chessUsername) {
+          await createOrUpdateChessInfo(newUser.chessUsername, newUser.id);
+        }
 
-/**
- * OAuth Strategy Overview
- *
- * - User is already logged in.
- *   - Check if there is an existing account with a provider id.
- *     - If there is, return an error message. (Account merging not supported)
- *     - Else link new OAuth account with currently logged-in user.
- * - User is not logged in.
- *   - Check if it's a returning user.
- *     - If returning user, sign in and we are done.
- *     - Else check if there is an existing account with user's email.
- *       - If there is, return an error message.
- *       - Else create a new account.
- */
-
-
-/**
- * Sign in with Facebook.
- */
-passport.use(new FacebookStrategy({
-    clientID: process.env.FACEBOOK_ID,
-    clientSecret: process.env.FACEBOOK_SECRET,
-    callbackURL: "/auth/facebook/callback",
-    profileFields: ["name", "email", "link", "locale", "timezone"],
-    passReqToCallback: true
-}, (req: any, accessToken, refreshToken, profile, done) => {
-    if (req.user) {
-        User.findOne({ facebook: profile.id }, (err: NativeError, existingUser: UserDocument) => {
-            if (err) { return done(err); }
-            if (existingUser) {
-                req.flash("errors", { msg: "There is already a Facebook account that belongs to you. Sign in with that account or delete it, then link it with your current account." });
-                done(err);
-            } else {
-                User.findById(req.user.id, (err: NativeError, user: UserDocument) => {
-                    if (err) { return done(err); }
-                    user.facebook = profile.id;
-                    user.tokens.push({ kind: "facebook", accessToken });
-                    user.profile.name = user.profile.name || `${profile.name.givenName} ${profile.name.familyName}`;
-                    user.profile.gender = user.profile.gender || profile._json.gender;
-                    user.profile.picture = user.profile.picture || `https://graph.facebook.com/${profile.id}/picture?type=large`;
-                    user.save((err: Error) => {
-                        req.flash("info", { msg: "Facebook account has been linked." });
-                        done(err, user);
-                    });
-                });
-            }
-        });
-    } else {
-        User.findOne({ facebook: profile.id }, (err: NativeError, existingUser: UserDocument) => {
-            if (err) { return done(err); }
-            if (existingUser) {
-                return done(undefined, existingUser);
-            }
-            User.findOne({ email: profile._json.email }, (err: NativeError, existingEmailUser: UserDocument) => {
-                if (err) { return done(err); }
-                if (existingEmailUser) {
-                    req.flash("errors", { msg: "There is already an account using this email address. Sign in to that account and link it with Facebook manually from Account Settings." });
-                    done(err);
-                } else {
-                    const user: any = new User();
-                    user.email = profile._json.email;
-                    user.facebook = profile.id;
-                    user.tokens.push({ kind: "facebook", accessToken });
-                    user.profile.name = `${profile.name.givenName} ${profile.name.familyName}`;
-                    user.profile.gender = profile._json.gender;
-                    user.profile.picture = `https://graph.facebook.com/${profile.id}/picture?type=large`;
-                    user.profile.location = (profile._json.location) ? profile._json.location.name : "";
-                    user.save((err: Error) => {
-                        done(err, user);
-                    });
-                }
-            });
-        });
+        done(null, newUser);
+      } catch (error) {
+        done(error as Error, undefined);
+      }
     }
-}));
+  )
+);
 
-/**
- * Login Required middleware.
- */
-export const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
-    if (req.isAuthenticated()) {
-        return next();
-    }
-    res.redirect("/login");
+passport.serializeUser((user: User, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id: string, done) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id } });
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
+});
+
+// JWT Strategy
+const jwtOptions: StrategyOptionsWithRequest = {
+  jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+  secretOrKey: process.env.JWT_SECRET as string,
+  passReqToCallback: true,
 };
 
-/**
- * Authorization Required middleware.
- */
-export const isAuthorized = (req: Request, res: Response, next: NextFunction) => {
-    const provider = req.path.split("/").slice(-1)[0];
-
-    const user = req.user as UserDocument;
-    if (find(user.tokens, { kind: provider })) {
-        next();
-    } else {
-        res.redirect(`/auth/${provider}`);
+passport.use(
+  new JwtStrategy(jwtOptions, async (req, payload, done: VerifiedCallback) => {
+    try {
+      const user = await prisma.user.findUnique({ where: { id: payload.id } });
+      if (user) {
+        return done(null, user);
+      } else {
+        return done(null, false);
+      }
+    } catch (error) {
+      return done(error, false);
     }
-};
+  })
+);

@@ -1,0 +1,31 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "darwin-arm64"]
+}
+
+model User {
+  id               String   @id @default(uuid())
+  googleId         String   @unique
+  email            String   @unique
+  name             String
+  chessUsername    String?  @unique
+  youtubeChannelId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  chessInfo        ChessInfo?
+}
+
+model ChessInfo {
+  id         String  @id @default(uuid())
+  blitz      Int
+  bullet     Int
+  rapid      Int
+  puzzle     Int
+  userId     String  @unique
+  user       User    @relation(fields: [userId], references: [id])
+}
