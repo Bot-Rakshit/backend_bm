@@ -38,6 +38,7 @@ passport.use(
 
         const existingUser = await prisma.user.findUnique({
           where: { googleId: profile.id },
+          include: { chessInfo: true },
         });
 
         if (existingUser) {
