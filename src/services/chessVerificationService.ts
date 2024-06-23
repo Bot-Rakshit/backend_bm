@@ -1,16 +1,9 @@
-import { redisClient } from '../utils/reddis';
 import axios from 'axios';
 import { isValidChessComId, chessComConfig } from '../config/chesscom';
 
 export class ChessVerificationService {
   public async isValidChessComId(chessUsername: string): Promise<boolean> {
     return isValidChessComId(chessUsername);
-  }
-
-  public async generateVerificationCodeWithUsername(chessUsername: string): Promise<string> {
-    const verificationCode = Math.random().toString(36).substring(2, 15);
-    await redisClient.set(chessUsername, verificationCode, { EX: 3600 }); // Expires in 1 hour
-    return verificationCode;
   }
 
   public async verifyChessProfile(chessUsername: string, verificationCode: string): Promise<boolean> {

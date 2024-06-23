@@ -6,8 +6,9 @@ import compression from 'compression';
 import session from 'express-session';
 import { errorHandler } from './middlewares/errorHandler';
 import authRoutes from './routes/auth';
+import chessRoutes from './routes/chess';
 import './config/passport';
-import './utils/scheduler'; 
+import './utils/scheduler';
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/chess', chessRoutes);
 
 app.use(errorHandler);
 

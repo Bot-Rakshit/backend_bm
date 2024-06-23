@@ -6,7 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import { User } from '../models/User';
 import jwt from 'jsonwebtoken';
 import { createOrUpdateChessInfo } from '../services/chessInfoService';
-
+import winston from 'winston';
 const prisma = new PrismaClient();
 
 export class AuthController {
@@ -50,19 +50,23 @@ export class AuthController {
       let verificationCode: string | undefined;
       const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { [key: string]: any };
       verificationCode = decoded.verificationCode;
-
+      winston.info('verificationCode', verificationCode);
       if (!verificationCode) {
         res.status(400).json({ error: 'Verification token not found in JWT' });
         return;
       }
 
-      const isVerified = await this.chessVerificationService.verifyChessProfile(chessUsername,verificationCode);
+      const isVerified = await this.chessVerificationService.verifyChessProfile(chessUsername, verificationCode);
       if (isVerified) {
         await prisma.user.update({
           where: { id: user.id },
           data: { chessUsername },
         });
-        res.json({ success: true, message: 'Chess.com profile verified' });
+
+        // Update ChessInfo table
+        const stats = await createOrUpdateChessInfo(chessUsername, user.id);
+
+        res.json({ success: true, message: 'Chess.com profile verified', stats });
       } else {
         res.status(400).json({ error: 'Verification failed' });
       }
@@ -75,9 +79,9 @@ export class AuthController {
     try {
       const user = req.user as User;
       const token = await this.authService.generateToken(user);
-      let stats
-      if(user.chessUsername){
-         stats = await createOrUpdateChessInfo(user.chessUsername, user.id);
+      let stats;
+      if (user.chessUsername) {
+        stats = await createOrUpdateChessInfo(user.chessUsername, user.id);
       }
       res.json({ token, stats });
     } catch (error) {

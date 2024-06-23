@@ -42,6 +42,9 @@ passport.use(
         });
 
         if (existingUser) {
+          if (existingUser.chessUsername) {
+            await createOrUpdateChessInfo(existingUser.chessUsername, existingUser.id);
+          }
           return done(null, existingUser);
         }
 
