@@ -12,13 +12,6 @@ const chessVerificationSchema = Joi.object({
 });
 
 router.post(
-  '/chess-verify',
-  passport.authenticate('jwt', { session: false }), // Ensure user is authenticated
-  validateRequest(chessVerificationSchema),
-  authController.initiateChessVerification
-);
-
-router.post(
   '/chess-verify/confirm',
   passport.authenticate('jwt', { session: false }), // Ensure user is authenticated
   validateRequest(chessVerificationSchema),
