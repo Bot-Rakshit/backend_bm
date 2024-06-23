@@ -81,3 +81,60 @@ export const getPercentiles = async (chessUsername: string) => {
     throw new Error('Failed to fetch Chess.com stats');
   }
 };
+
+export const getDashboardStats = async () => {
+  try {
+    const totalUsers = await prisma.user.count();
+
+    const highestRapid = await prisma.chessInfo.findFirst({
+      orderBy: { rapid: 'desc' },
+      select: { rapid: true, user: { select: { chessUsername: true } } },
+    });
+
+    const highestBlitz = await prisma.chessInfo.findFirst({
+      orderBy: { blitz: 'desc' },
+      select: { blitz: true, user: { select: { chessUsername: true } } },
+    });
+
+    const highestBullet = await prisma.chessInfo.findFirst({
+      orderBy: { bullet: 'desc' },
+      select: { bullet: true, user: { select: { chessUsername: true } } },
+    });
+
+    const averageRapid = await prisma.chessInfo.aggregate({
+      _avg: { rapid: true },
+    });
+
+    const top10Blitz = await prisma.chessInfo.findMany({
+      orderBy: { blitz: 'desc' },
+      take: 10,
+      select: { blitz: true, user: { select: { chessUsername: true } } },
+    });
+
+    const top10Bullet = await prisma.chessInfo.findMany({
+      orderBy: { bullet: 'desc' },
+      take: 10,
+      select: { bullet: true, user: { select: { chessUsername: true } } },
+    });
+
+    const top10Rapid = await prisma.chessInfo.findMany({
+      orderBy: { rapid: 'desc' },
+      take: 10,
+      select: { rapid: true, user: { select: { chessUsername: true } } },
+    });
+
+    return {
+      totalUsers,
+      highestRapid: { chessUsername: highestRapid?.user.chessUsername, rating: highestRapid?.rapid },
+      highestBlitz: { chessUsername: highestBlitz?.user.chessUsername, rating: highestBlitz?.blitz },
+      highestBullet: { chessUsername: highestBullet?.user.chessUsername, rating: highestBullet?.bullet },
+      averageRapid: averageRapid._avg.rapid,
+      top10Blitz,
+      top10Bullet,
+      top10Rapid,
+    };
+  } catch (error) {
+    console.error('Failed to fetch dashboard stats', error);
+    throw new Error('Failed to fetch dashboard stats');
+  }
+};
