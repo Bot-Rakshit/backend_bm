@@ -12,10 +12,24 @@ const chessVerificationSchema = Joi.object({
 });
 
 router.post(
+  '/chess-verify',
+  passport.authenticate('jwt', { session: false }),
+  validateRequest(chessVerificationSchema),
+  authController.initiateChessVerification
+);
+
+router.post(
   '/chess-verify/confirm',
-  passport.authenticate('jwt', { session: false }), // Ensure user is authenticated
+  passport.authenticate('jwt', { session: false }),
   validateRequest(chessVerificationSchema),
   authController.confirmChessVerification
+);
+
+router.get(
+  '/test',
+  (req, res) => {
+    res.send('test');
+  }
 );
 
 router.get(
@@ -25,7 +39,7 @@ router.get(
 
 router.get(
   '/google/callback',
-  passport.authenticate('google', { failureRedirect: '/login' }),
+  passport.authenticate('google', { failureRedirect: '/' }), // Ensure Passport sets the user
   authController.googleCallback
 );
 
