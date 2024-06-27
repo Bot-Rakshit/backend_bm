@@ -34,7 +34,11 @@ router.get(
 
 router.get(
   '/google',
-  passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/youtube.readonly'] })
+  passport.authenticate('google', { 
+    scope: ['profile', 'email', 'https://www.googleapis.com/auth/youtube.readonly'],
+    accessType: 'offline',
+    prompt: 'consent'
+  })
 );
 
 router.get(

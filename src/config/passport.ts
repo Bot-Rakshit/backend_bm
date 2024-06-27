@@ -8,19 +8,16 @@ import { google } from 'googleapis';
 
 const prisma = new PrismaClient();
 
-
 interface ProfileJson {
   youtubeChannelId?: string;
-  
 }
-
 
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      callbackURL: '/api/auth/google/callback',
+      callbackURL: 'https://shahmaat.fun/api/auth/google/callback',
     },
     async (accessToken, refreshToken, profile: any, done) => {
       const profileJson: ProfileJson = profile._json;
@@ -103,3 +100,6 @@ passport.use(
     }
   })
 );
+
+
+
