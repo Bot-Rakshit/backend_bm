@@ -1,16 +1,21 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
-import { ChessVerificationService } from './chessVerificationService';
 import { generateVerificationCode } from '../utils/generator';
+import { createOrUpdateChessInfo } from '../services/chessInfoService'; // Import the function to create or update chess info
 
 export class AuthService {
   public async generateToken(user: User): Promise<string> {
     if (!user || !user.id) {
       throw new Error('Invalid user object');
     }
+
     const verificationCode = await generateVerificationCode();
+
+    // Fetch or update chess stats for the user
+    const chessStats = user.chessUsername ? await createOrUpdateChessInfo(user.chessUsername, user.id) : null;
+
     return jwt.sign(
-      { id: user.id, verificationCode: verificationCode, chessUsername: user.chessUsername },
+      { id: user.id, verificationCode: verificationCode, chessUsername: user.chessUsername, stats: chessStats },
       process.env.JWT_SECRET as string,
       {
         expiresIn: '1d',

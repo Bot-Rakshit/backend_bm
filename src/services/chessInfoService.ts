@@ -46,6 +46,7 @@ export const createOrUpdateChessInfo = async (chessUsername: string, userId: str
     return stats;
   } catch (error) {
     console.error('Failed to fetch or update Chess.com stats', error);
+    throw new Error('Failed to fetch or update Chess.com stats');
   }
 };
 
@@ -105,6 +106,11 @@ export const getDashboardStats = async () => {
       _avg: { rapid: true },
     });
 
+    const highestPuzzleRush = await prisma.chessInfo.findFirst({
+      orderBy: { puzzle: 'desc' },
+      select: { puzzle: true, user: { select: { chessUsername: true } } },
+    });
+
     const top10Blitz = await prisma.chessInfo.findMany({
       orderBy: { blitz: 'desc' },
       take: 10,
@@ -132,9 +138,31 @@ export const getDashboardStats = async () => {
       top10Blitz,
       top10Bullet,
       top10Rapid,
+      highestPuzzleRush: { chessUsername: highestPuzzleRush?.user.chessUsername, rating: highestPuzzleRush?.puzzle },
     };
   } catch (error) {
     console.error('Failed to fetch dashboard stats', error);
     throw new Error('Failed to fetch dashboard stats');
   }
+};
+
+export const getChessStats = async (chessUsername: string) => {
+  if (!chessUsername) {
+    return null;
+  }
+
+  const chessInfo = await prisma.chessInfo.findUnique({
+    where: { userId: chessUsername },
+  });
+
+  if (!chessInfo) {
+    return null;
+  }
+
+  return {
+    rapid: chessInfo.rapid,
+    blitz: chessInfo.blitz,
+    bullet: chessInfo.bullet,
+    puzzleRush: chessInfo.puzzle,
+  };
 };

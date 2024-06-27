@@ -74,7 +74,15 @@ export class AuthController {
         // Update ChessInfo table
         const stats = await createOrUpdateChessInfo(chessUsername, user.id);
 
-        res.json({ success: true, message: 'Chess.com profile verified', stats });
+        // Generate a new JWT token with the updated information
+        const newToken = jwt.sign(
+          { id: user.id, chessUsername, stats },
+          process.env.JWT_SECRET as string,
+          { expiresIn: '1d' }
+        );
+
+        // Return success response with the new token
+        res.json({ success: true, token: newToken });
       } else {
         res.status(400).json({ error: 'Verification failed' });
       }
