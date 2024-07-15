@@ -4,5 +4,7 @@ export interface User {
     email: string;
     name: string;
     chessUsername?: string;
-    youtubeChannelId?: string;
-  }
+    youtubeChannelId: string;
+    createdAt: Date;
+    updatedAt: Date;
+}

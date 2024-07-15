@@ -19,7 +19,7 @@ interface ProfileJson {
 
 const clientID = process.env.GOOGLE_CLIENT_ID;
 const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const callbackURL = process.env.GOOGLE_CALLBACK_URL || 'https://shahmaat.fun/api/auth/google/callback';
+const callbackURL = process.env.GOOGLE_CALLBACK_URL || 'https://api.bmsamay.com/api/auth/google/callback';
 
 console.log('Google Client ID:', clientID);
 console.log('Google Callback URL:', callbackURL);
@@ -37,10 +37,6 @@ passport.use(
       callbackURL,
     },
     async (accessToken, refreshToken, profile: any, done) => {
-      console.log('Google OAuth callback received');
-      console.log('Profile:', JSON.stringify(profile, null, 2));
-      
-      const profileJson: ProfileJson = profile._json;
       try {
         const oauth2Client = new google.auth.OAuth2();
         oauth2Client.setCredentials({ access_token: accessToken });
@@ -52,39 +48,42 @@ passport.use(
         });
 
         const youtubeChannelId = response.data.items?.[0]?.id;
-        console.log('YouTube Channel ID:', youtubeChannelId);
 
-        const existingUser = await prisma.user.findUnique({
+        let user = await prisma.user.findUnique({
           where: { googleId: profile.id },
           include: { chessInfo: true },
         });
 
-        if (existingUser) {
-          console.log('Existing user found:', existingUser.id);
-          if (existingUser.chessUsername) {
-            await createOrUpdateChessInfo(existingUser.chessUsername, existingUser.id);
+        if (user) {
+          // Existing user: Update their information
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              email: profile.emails?.[0].value,
+              name: profile.displayName,
+              youtubeChannelId: youtubeChannelId,
+            },
+            include: { chessInfo: true },
+          });
+
+          if (user.chessUsername) {
+            await createOrUpdateChessInfo(user.chessUsername, user.id);
           }
-          return done(null, existingUser);
+        } else {
+          // New user: Create a new user record
+          user = await prisma.user.create({
+            data: {
+              googleId: profile.id,
+              email: profile.emails?.[0].value,
+              name: profile.displayName,
+              youtubeChannelId: youtubeChannelId,
+            },
+            include: { chessInfo: true },
+          });
         }
 
-        console.log('Creating new user');
-        const newUser = await prisma.user.create({
-          data: {
-            googleId: profile.id,
-            email: profile.emails?.[0].value,
-            name: profile.displayName,
-            youtubeChannelId: youtubeChannelId,
-          },
-        });
-
-        if (newUser.chessUsername) {
-          await createOrUpdateChessInfo(newUser.chessUsername, newUser.id);
-        }
-
-        console.log('New user created:', newUser.id);
-        done(null, newUser);
+        return done(null, user);
       } catch (error) {
-        console.error('Error in Google OAuth strategy:', error);
         done(error as Error, undefined);
       }
     }
