@@ -6,16 +6,18 @@ import compression from 'compression';
 import session from 'express-session';
 import { errorHandler } from './middlewares/errorHandler';
 import authRoutes from './routes/auth';
-import chessRoutes from './routes/chess';// Import the test routes
+import chessRoutes from './routes/chess';
 import './config/passport';
 import './utils/scheduler';
-import chatRoutes from './routes/chat'; // Added import for chatRoutes
+import http from 'http';
 
 const app = express();
+export { app };
+const server = http.createServer(app);
 
 // Configure CORS to allow requests from the frontend
 app.use(cors({
-  origin: process.env.FRONTEND || 'wa', // Use the FRONTEND environment variable or default to localhost
+  origin: ['http://localhost:5173', 'http://localhost:3000', process.env.FRONTEND].filter(Boolean),
   credentials: true // Allow credentials (cookies, authorization headers, etc.)
 }));
 
@@ -36,8 +38,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use('/api/auth', authRoutes);
-app.use('/api/chess', chessRoutes);// Use the test routes
-app.use('/api/chat', chatRoutes); // Use the imported chatRoutes
+app.use('/api/chess', chessRoutes); // Use the imported chatRoutes
 app.use(errorHandler);
 
-export default app;
+export { server };
