@@ -19,7 +19,7 @@ interface ProfileJson {
 
 const clientID = process.env.GOOGLE_CLIENT_ID;
 const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const callbackURL = process.env.GOOGLE_CALLBACK_URL || 'https://api.bmsamay.com/api/auth/google/callback';
+const callbackURL = process.env.GOOGLE_REDIRECT_URI;
 
 console.log('Google Client ID:', clientID);
 console.log('Google Callback URL:', callbackURL);

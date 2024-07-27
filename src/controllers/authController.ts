@@ -6,8 +6,6 @@ import { PrismaClient } from '@prisma/client';
 import { User } from '../models/User';
 import jwt from 'jsonwebtoken';
 import { createOrUpdateChessInfo } from '../services/chessInfoService';
-import winston from 'winston';
-
 const prisma = new PrismaClient();
 
 export class AuthController {
