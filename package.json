@@ -26,7 +26,8 @@
         "passport-google-oauth20": "^2.0.0",
         "passport-jwt": "^4.0.1",
         "redis": "^4.6.14",
-        "winston": "^3.8.1"
+        "winston": "^3.8.1",
+        "youtube-chat": "^2.2.0"
     },
     "devDependencies": {
         "@types/compression": "^1.7.2",
@@ -46,4 +47,3 @@
         "typescript": "^4.7.4"
     }
 }
-

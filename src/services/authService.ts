@@ -2,6 +2,9 @@ import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { generateVerificationCode } from '../utils/generator';
 import { createOrUpdateChessInfo } from '../services/chessInfoService'; // Import the function to create or update chess info
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export class AuthService {
   public async generateToken(user: User): Promise<string> {
@@ -21,5 +24,9 @@ export class AuthService {
         expiresIn: '1d',
       }
     );
+  }
+
+  public async findUserByEmail(email: string): Promise<User | null> {
+    return prisma.user.findUnique({ where: { email } });
   }
 }

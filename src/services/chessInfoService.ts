@@ -29,7 +29,9 @@ interface ChessStats {
 
 export const createOrUpdateChessInfo = async (chessUsername: string, userId: string) => {
   try {
-    const response = await axios.get(`${chessComConfig.baseURL}/${chessUsername}/stats`, { headers: chessComConfig.headers });
+    const trimmedUsername = chessUsername.trim();
+    const encodedUsername = encodeURIComponent(trimmedUsername);
+    const response = await axios.get(`${chessComConfig.baseURL}/${encodedUsername}/stats`, { headers: chessComConfig.headers });
     const data: ChessStats = response.data;
 
     const blitz = data.chess_blitz?.last?.rating ?? 0;
@@ -52,7 +54,9 @@ export const createOrUpdateChessInfo = async (chessUsername: string, userId: str
 
 export const getPercentiles = async (chessUsername: string) => {
   try {
-    const response = await axios.get(`${chessComConfig.baseURL}/${chessUsername}/stats`, { headers: chessComConfig.headers });
+    const trimmedUsername = chessUsername.trim();
+    const encodedUsername = encodeURIComponent(trimmedUsername);
+    const response = await axios.get(`${chessComConfig.baseURL}/${encodedUsername}/stats`, { headers: chessComConfig.headers });
     const data: ChessStats = response.data;
 
     const blitz = data.chess_blitz?.last?.rating ?? 0;

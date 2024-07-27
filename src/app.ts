@@ -9,12 +9,13 @@ import authRoutes from './routes/auth';
 import chessRoutes from './routes/chess';// Import the test routes
 import './config/passport';
 import './utils/scheduler';
+import chatRoutes from './routes/chat'; // Added import for chatRoutes
 
 const app = express();
 
 // Configure CORS to allow requests from the frontend
 app.use(cors({
-  origin: process.env.FRONTEND || 'http://localhost:5173', // Use the FRONTEND environment variable or default to localhost
+  origin: process.env.FRONTEND || 'wa', // Use the FRONTEND environment variable or default to localhost
   credentials: true // Allow credentials (cookies, authorization headers, etc.)
 }));
 
@@ -36,7 +37,7 @@ app.use(passport.session());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/chess', chessRoutes);// Use the test routes
-
+app.use('/api/chat', chatRoutes); // Use the imported chatRoutes
 app.use(errorHandler);
 
 export default app;

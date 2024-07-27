@@ -39,6 +39,7 @@ export class AuthController {
   public confirmChessVerification = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { chessUsername } = req.body;
+      const trimmedChessUsername = chessUsername.trim(); // Trim the username
       const user = req.user as User;
       const authHeader = req.headers['authorization'];
       const token = authHeader && authHeader.split(' ')[1];
@@ -49,7 +50,7 @@ export class AuthController {
       }
 
       // Check if the Chess.com ID is already linked to another user
-      const existingUser = await prisma.user.findUnique({ where: { chessUsername } });
+      const existingUser = await prisma.user.findUnique({ where: { chessUsername: trimmedChessUsername } });
       if (existingUser && existingUser.id !== user.id) {
         res.status(400).json({ error: 'Chess.com ID is already linked to another account' });
         return;
@@ -64,19 +65,19 @@ export class AuthController {
         return;
       }
 
-      const isVerified = await this.chessVerificationService.verifyChessProfile(chessUsername, verificationCode);
+      const isVerified = await this.chessVerificationService.verifyChessProfile(trimmedChessUsername, verificationCode);
       if (isVerified) {
         await prisma.user.update({
           where: { id: user.id },
-          data: { chessUsername },
+          data: { chessUsername: trimmedChessUsername },
         });
 
         // Update ChessInfo table
-        const stats = await createOrUpdateChessInfo(chessUsername, user.id);
+        const stats = await createOrUpdateChessInfo(trimmedChessUsername, user.id);
 
         // Generate a new JWT token with the updated information
         const newToken = jwt.sign(
-          { id: user.id, chessUsername, stats },
+          { id: user.id, chessUsername: trimmedChessUsername, stats }, // Include chess stats in the token
           process.env.JWT_SECRET as string,
           { expiresIn: '1d' }
         );
@@ -109,7 +110,43 @@ export class AuthController {
         stats = await createOrUpdateChessInfo(user.chessUsername, user.id);
       }
 
-      res.redirect(`${process.env.FRONTEND}/signupcallback?token=${token}`);
+      // Check if the user was just created
+      const isNewUser = user.createdAt.getTime() === user.updatedAt.getTime();
+
+      // Include the token, isNewUser flag, and user info in the redirect URL
+      const userInfo = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        chessUsername: user.chessUsername,
+        youtubeChannelId: user.youtubeChannelId
+      };
+
+      const queryParams = new URLSearchParams({
+        token: token,
+        isNewUser: isNewUser.toString(),
+        userInfo: JSON.stringify(userInfo),
+        stats: stats ? JSON.stringify(stats) : ''
+      });
+
+      res.redirect(`${process.env.FRONTEND}/signupcallback?${queryParams.toString()}`);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public signIn = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { email } = req.body;
+      const user = await this.authService.findUserByEmail(email);
+
+      if (!user) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+
+      const token = await this.authService.generateToken(user);
+      res.json({ token });
     } catch (error) {
       next(error);
     }
