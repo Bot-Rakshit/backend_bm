@@ -36,8 +36,7 @@ router.get('/google', (req, res, next) => {
   passport.authenticate('google', {
     scope: ['profile', 'email', 'https://www.googleapis.com/auth/youtube.readonly'],
     accessType: 'offline',
-    prompt: 'select_account',
-    includeGrantedScopes: true
+    prompt: 'select_account'
   })(req, res, next);
 });
 
