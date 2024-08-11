@@ -39,12 +39,16 @@ export const createOrUpdateChessInfo = async (chessUsername: string, userId: str
     const rapid = data.chess_rapid?.last?.rating ?? 0;
     const puzzle = data.puzzle_rush?.best?.score ?? 0;
 
+    console.log(`Updating chess info for user ${userId}:`);
+    console.log(`Blitz: ${blitz}, Bullet: ${bullet}, Rapid: ${rapid}, Puzzle: ${puzzle}`);
+
     const stats = await prisma.chessInfo.upsert({
       where: { userId },
       update: { blitz, bullet, rapid, puzzle },
       create: { blitz, bullet, rapid, puzzle, user: { connect: { id: userId } } },
     });
     
+    console.log(`Updated chess info for user ${userId}:`, stats);
     return stats;
   } catch (error) {
     console.error('Failed to fetch or update Chess.com stats', error);

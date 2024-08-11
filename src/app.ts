@@ -4,19 +4,31 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import session from 'express-session';
+import http from 'http';
+import { Server } from 'socket.io';
 import { errorHandler } from './middlewares/errorHandler';
 import authRoutes from './routes/auth';
-import chessRoutes from './routes/chess';// Import the test routes
+import chessRoutes from './routes/chess';
+import setupChatRoutes from './routes/chat';
+import { setupChatSocket } from './controllers/chatController';
 import './config/passport';
+import { logger } from './utils/logger';
 import './utils/scheduler';
-import chatRoutes from './routes/chat'; // Added import for chatRoutes
 
 const app = express();
 
+const allowedOrigins = [process.env.FRONTEND, 'http://localhost:5173', 'https://www.bmsamay.com'];
+
 // Configure CORS to allow requests from the frontend
 app.use(cors({
-  origin: process.env.FRONTEND || 'wa', // Use the FRONTEND environment variable or default to localhost
-  credentials: true // Allow credentials (cookies, authorization headers, etc.)
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
 }));
 
 app.use(helmet());
@@ -26,18 +38,38 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configure express-session
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your_secret_key', // Use a strong secret key
+  secret: process.env.SESSION_SECRET || 'your_secret_key',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === 'production' } // Use secure cookies in production
+  cookie: { secure: process.env.NODE_ENV === 'production' }
 }));
 
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Create HTTP server and setup Socket.IO
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+});
+
+// Setup routes
 app.use('/api/auth', authRoutes);
-app.use('/api/chess', chessRoutes);// Use the test routes
-app.use('/api/chat', chatRoutes); // Use the imported chatRoutes
+app.use('/api/chess', chessRoutes);
+app.use('/api/chat', setupChatRoutes(io));
 app.use(errorHandler);
+
+// Setup chat socket connections
+setupChatSocket(io);
+
+server.listen(2999, () => {
+  logger.info(`Server is running on port ${2999}`);
+});
 
 export default app;

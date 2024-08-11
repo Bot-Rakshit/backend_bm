@@ -19,7 +19,7 @@ interface ProfileJson {
 
 const clientID = process.env.GOOGLE_CLIENT_ID;
 const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const callbackURL = process.env.GOOGLE_CALLBACK_URL || 'https://api.bmsamay.com/api/auth/google/callback';
+const callbackURL = process.env.GOOGLE_REDIRECT_URI;
 
 console.log('Google Client ID:', clientID);
 console.log('Google Callback URL:', callbackURL);
@@ -38,17 +38,6 @@ passport.use(
     },
     async (accessToken, refreshToken, profile: any, done) => {
       try {
-        const oauth2Client = new google.auth.OAuth2();
-        oauth2Client.setCredentials({ access_token: accessToken });
-        const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
-        
-        const response = await youtube.channels.list({
-          part: ['id'],
-          mine: true,
-        });
-
-        const youtubeChannelId = response.data.items?.[0]?.id;
-
         let user = await prisma.user.findUnique({
           where: { googleId: profile.id },
           include: { chessInfo: true },
@@ -61,7 +50,6 @@ passport.use(
             data: {
               email: profile.emails?.[0].value,
               name: profile.displayName,
-              youtubeChannelId: youtubeChannelId,
             },
             include: { chessInfo: true },
           });
@@ -70,7 +58,24 @@ passport.use(
             await createOrUpdateChessInfo(user.chessUsername, user.id);
           }
         } else {
-          // New user: Create a new user record
+          // New user: Create a new user record and attempt to fetch YouTube channel ID
+          let youtubeChannelId = null;
+          try {
+            const oauth2Client = new google.auth.OAuth2();
+            oauth2Client.setCredentials({ access_token: accessToken });
+            const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+            
+            const response = await youtube.channels.list({
+              part: ['id'],
+              mine: true,
+            });
+
+            youtubeChannelId = response.data.items?.[0]?.id || null;
+          } catch (error) {
+            console.error('Error fetching YouTube channel ID:', error);
+            // Continue with account creation even if YouTube ID fetch fails
+          }
+
           user = await prisma.user.create({
             data: {
               googleId: profile.id,
